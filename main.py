@@ -1,25 +1,64 @@
-# app.py
 import streamlit as st
-from modules.youtube_api import get_comments
-from modules.sentiment import analyze_comments
+import requests
+import re
 
-st.title("🧠 유튜브 악플 탐지기")
+# API 키 입력 (넌 이거 숨겨야지. 나중에 환경변수로 빼든가 해)
+API_KEY = '여기에_너_API_키_넣어라'
 
-video_url = st.text_input("유튜브 영상 URL을 입력하세요")
-if video_url:
-    with st.spinner("댓글 수집 중..."):
-        comments = get_comments(video_url)
+# 악플 키워드 리스트 (예시, 너가 원하는 단어로 바꿔)
+HATE_KEYWORDS = ['멍청', '죽어', '좆', 'ㅅㅂ', 'ㄲㅈ', '꺼져', '개새', 'ㅄ', '미친', '병신']
+
+def extract_video_id(url):
+    match = re.search(r"(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})", url)
+    return match.group(1) if match else None
+
+def get_comments(video_id):
+    comments = []
+    next_page_token = ''
     
-    with st.spinner("악플 분석 중..."):
-        analyzed = analyze_comments(comments)
+    while True:
+        url = (
+            f"https://www.googleapis.com/youtube/v3/commentThreads"
+            f"?part=snippet&videoId={video_id}&key={API_KEY}&maxResults=100&pageToken={next_page_token}"
+        )
+        res = requests.get(url)
+        data = res.json()
 
-    st.success("분석 완료!")
+        for item in data.get("items", []):
+            comment = item['snippet']['topLevelComment']['snippet']['textDisplay']
+            comments.append(comment)
 
-    st.subheader("📌 악성 댓글")
-    for row in analyzed:
-        if row['label'] == '악플':
-            st.write(f"- {row['text']}")
+        next_page_token = data.get("nextPageToken")
+        if not next_page_token:
+            break
 
-    st.metric("총 댓글 수", len(analyzed))
-    st.metric("악플 수", sum(1 for r in analyzed if r['label'] == '악플'))
+    return comments
 
+def filter_hate_comments(comments):
+    hate_comments = []
+    for c in comments:
+        lowered = c.lower()
+        if any(keyword in lowered for keyword in HATE_KEYWORDS):
+            hate_comments.append(c)
+    return hate_comments
+
+# Streamlit UI
+st.title("🧹 YouTube 악플 필터링기")
+video_url = st.text_input("YouTube 영상 URL을 입력하세요")
+if st.button("분석 시작"):
+    with st.spinner("댓글 불러오는 중..."):
+        video_id = extract_video_id(video_url)
+        if not video_id:
+            st.error("올바른 YouTube URL이 아님.")
+        else:
+            try:
+                comments = get_comments(video_id)
+                st.write(f"전체 댓글 수: {len(comments)}개")
+                hate_comments = filter_hate_comments(comments)
+                st.success(f"악플 수: {len(hate_comments)}개")
+
+                for hc in hate_comments:
+                    st.write(f"- {hc}")
+
+            except Exception as e:
+                st.error(f"에러 발생: {e}")
