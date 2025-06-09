@@ -5,7 +5,7 @@ import torch
 import pandas as pd
 import re
 
-API_KEY = '너의_API_KEY'
+API_KEY = 'AIzaSyBGiCgfY5Vjyh7j5xoYr__fwb1E1vSBxWA'
 
 @st.cache_resource
 def load_model():
