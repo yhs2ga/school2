@@ -3,7 +3,7 @@ import requests
 import re
 
 # API 키 입력 (넌 이거 숨겨야지. 나중에 환경변수로 빼든가 해)
-API_KEY = '여기에_너_API_키_넣어라'
+API_KEY = 'AIzaSyBGiCgfY5Vjyh7j5xoYr__fwb1E1vSBxWA'
 
 # 악플 키워드 리스트 (예시, 너가 원하는 단어로 바꿔)
 HATE_KEYWORDS = ['멍청', '죽어', '좆', 'ㅅㅂ', 'ㄲㅈ', '꺼져', '개새', 'ㅄ', '미친', '병신']
