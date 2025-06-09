@@ -5,10 +5,8 @@ import torch
 import pandas as pd
 import re
 
-# 🔑 유튜브 API 키
-API_KEY = 'AIzaSyBGiCgfY5Vjyh7j5xoYr__fwb1E1vSBxWA'
+API_KEY = '너의_API_KEY'
 
-# 모델 불러오기
 @st.cache_resource
 def load_model():
     tokenizer = AutoTokenizer.from_pretrained("beomi/KcELECTRA-base")
@@ -17,7 +15,6 @@ def load_model():
 
 tokenizer, model = load_model()
 
-# 감성 분석 함수
 def classify_comment(comment):
     inputs = tokenizer(comment, return_tensors="pt", truncation=True, padding=True)
     with torch.no_grad():
@@ -26,12 +23,10 @@ def classify_comment(comment):
         label = torch.argmax(probs).item()
     return label, probs.tolist()[0]
 
-# 유튜브 영상 ID 추출
 def extract_video_id(url):
     match = re.search(r"(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})", url)
     return match.group(1) if match else None
 
-# 댓글 불러오기 (pageToken 고침)
 def get_comments(video_id):
     comments = []
     next_page_token = None
@@ -71,8 +66,10 @@ if st.button("분석 시작"):
 
                 results = []
                 label_map = {0: "부정", 1: "긍정"}
+                status_text = st.empty()
+                progress_bar = st.progress(0)
 
-                for c in comments:
+                for idx, c in enumerate(comments):
                     try:
                         label, probs = classify_comment(c)
                         results.append({
@@ -82,7 +79,12 @@ if st.button("분석 시작"):
                             "긍정 확률": round(probs[1], 3)
                         })
                     except Exception:
-                        continue  # 문제 있는 댓글은 그냥 스킵
+                        continue
+
+                    # 진행률 업데이트
+                    percent_complete = int((idx + 1) / len(comments) * 100)
+                    progress_bar.progress(percent_complete)
+                    status_text.text(f"{idx + 1} / {len(comments)}개 분석 완료")
 
                 df = pd.DataFrame(results)
                 st.dataframe(df)
