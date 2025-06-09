@@ -52,9 +52,25 @@ def get_comments(video_id):
 
 # Streamlit UI
 st.title("🧠 YouTube 댓글 감성 분석기")
+
 video_url = st.text_input("YouTube 영상 URL 입력")
 
-if st.button("분석 시작"):
+# 초기 상태 설정
+if 'stop' not in st.session_state:
+    st.session_state.stop = False
+
+col1, col2 = st.columns(2)
+with col1:
+    start_analysis = st.button("분석 시작")
+with col2:
+    stop_analysis = st.button("중단")
+
+# 중단 버튼 누르면 상태 업데이트
+if stop_analysis:
+    st.session_state.stop = True
+
+if start_analysis:
+    st.session_state.stop = False
     with st.spinner("댓글 분석 중..."):
         video_id = extract_video_id(video_url)
         if not video_id:
@@ -70,6 +86,10 @@ if st.button("분석 시작"):
                 progress_bar = st.progress(0)
 
                 for idx, c in enumerate(comments):
+                    if st.session_state.stop:
+                        st.warning("분석이 중단되었습니다.")
+                        break
+
                     try:
                         label, probs = classify_comment(c)
                         results.append({
@@ -81,13 +101,15 @@ if st.button("분석 시작"):
                     except Exception:
                         continue
 
-                    # 진행률 업데이트
                     percent_complete = int((idx + 1) / len(comments) * 100)
                     progress_bar.progress(percent_complete)
                     status_text.text(f"{idx + 1} / {len(comments)}개 분석 완료")
 
-                df = pd.DataFrame(results)
-                st.dataframe(df)
+                if results:
+                    df = pd.DataFrame(results)
+                    st.dataframe(df)
+                else:
+                    st.info("분석된 댓글이 없습니다.")
 
             except Exception as e:
                 st.error(f"에러 발생: {e}")
