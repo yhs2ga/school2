@@ -2,11 +2,11 @@ import streamlit as st
 import requests
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
+import pandas as pd
 import re
 
-API_KEY = '여기에_너_API_키_넣어라'
+API_KEY = '너의_API_KEY'
 
-# 모델 준비
 @st.cache_resource
 def load_model():
     tokenizer = AutoTokenizer.from_pretrained("beomi/KcELECTRA-base")
@@ -21,7 +21,7 @@ def classify_comment(comment):
         outputs = model(**inputs)
         probs = torch.softmax(outputs.logits, dim=1)
         label = torch.argmax(probs).item()
-    return label  # 0: 부정, 1: 중립, 2: 긍정 (이 모델에 따라 다를 수 있음)
+    return label, probs.tolist()[0]  # (라벨, 확률 리스트)
 
 def extract_video_id(url):
     match = re.search(r"(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})", url)
@@ -30,7 +30,6 @@ def extract_video_id(url):
 def get_comments(video_id):
     comments = []
     next_page_token = ''
-
     while True:
         url = (
             f"https://www.googleapis.com/youtube/v3/commentThreads"
@@ -49,30 +48,38 @@ def get_comments(video_id):
 
     return comments
 
-# Streamlit UI
-st.title("🧠 YouTube 악플 감성분석기")
+# UI
+st.title("🧠 YouTube 댓글 감성 분석기")
 video_url = st.text_input("YouTube 영상 URL을 입력하세요")
 
 if st.button("분석 시작"):
-    with st.spinner("댓글 불러오는 중..."):
+    with st.spinner("댓글 분석 중..."):
         video_id = extract_video_id(video_url)
         if not video_id:
-            st.error("올바른 URL이 아님")
+            st.error("URL 이상함.")
         else:
             try:
                 comments = get_comments(video_id)
-                st.write(f"전체 댓글 수: {len(comments)}개")
+                st.write(f"댓글 {len(comments)}개 분석 중...")
 
-                hate_comments = []
+                results = []
+                label_map = {0: "부정", 1: "중립", 2: "긍정"}
+
                 for c in comments:
-                    label = classify_comment(c)
-                    if label == 0:  # 부정
-                        hate_comments.append(c)
+                    label, probs = classify_comment(c)
+                    results.append({
+                        "댓글": c,
+                        "감성": label_map[label],
+                        "부정 확률": round(probs[0], 3),
+                        "중립 확률": round(probs[1], 3),
+                        "긍정 확률": round(probs[2], 3),
+                    })
 
-                st.success(f"악플로 분류된 댓글 수: {len(hate_comments)}개")
+                df = pd.DataFrame(results)
+                st.dataframe(df)
 
-                for hc in hate_comments:
-                    st.write(f"- {hc}")
+                csv = df.to_csv(index=False).encode("utf-8-sig")
+                st.download_button("CSV로 저장하기", csv, "comment_analysis.csv", "text/csv")
 
             except Exception as e:
                 st.error(f"에러 발생: {e}")
