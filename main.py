@@ -6,7 +6,7 @@ import pandas as pd
 import re
 
 # 🔑 유튜브 API 키 입력
-API_KEY = '너의_API_KEY'
+API_KEY = 'AIzaSyBGiCgfY5Vjyh7j5xoYr__fwb1E1vSBxWA'
 
 # 🧠 감성 분석 모델 로드 (캐싱)
 @st.cache_resource
