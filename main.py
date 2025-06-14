@@ -2,26 +2,23 @@ import streamlit as st
 import requests
 import re
 import pickle
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer
 
-# Load model
+# Load trained model
 @st.cache_resource
 def load_model():
     with open("hate_model.pkl", "rb") as f:
-        model = pickle.load(f)
-    return model['vectorizer'], model['hate_vectors'], model['hate_texts']
+        data = pickle.load(f)
+    return data['vectorizer'], data['model']
 
-vectorizer, hate_vectors, hate_texts = load_model()
+vectorizer, model = load_model()
 
 # YouTube API Key
-API_KEY = 'AIzaSyCEPm16vLDOuCxBH7eXB8_c8Kk78kfKfJQ'
+API_KEY = '너의_API_KEY'
 
-# Extract video ID (지원: watch, youtu.be, embed, shorts 등)
+# Extract video ID from URL
 def extract_video_id(url):
-    match = re.search(
-        r"(?:v=|youtu\.be/|embed/|shorts/)([0-9A-Za-z_-]{11})(?:[&?\\s]|$)",
-        url
-    )
+    match = re.search(r"(?:v=|youtu\\.be/|embed/|shorts/)([0-9A-Za-z_-]{11})(?:[&?\\s]|$)", url)
     return match.group(1) if match else None
 
 # Get YouTube comments
@@ -30,22 +27,18 @@ def get_comments(video_id):
     next_page_token = None
 
     while True:
-        base_url = (
-            f"https://www.googleapis.com/youtube/v3/commentThreads"
-            f"?part=snippet&videoId={video_id}&key={API_KEY}&maxResults=100"
-        )
+        url = f"https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId={video_id}&key={API_KEY}&maxResults=100"
         if next_page_token:
-            base_url += f"&pageToken={next_page_token}"
+            url += f"&pageToken={next_page_token}"
 
-        res = requests.get(base_url)
+        res = requests.get(url)
         if res.status_code != 200:
             break
 
         data = res.json()
-
         for item in data.get("items", []):
-            text = item['snippet']['topLevelComment']['snippet']['textDisplay']
-            comments.append(text)
+            comment = item['snippet']['topLevelComment']['snippet']['textDisplay']
+            comments.append(comment)
 
         next_page_token = data.get("nextPageToken")
         if not next_page_token:
@@ -53,40 +46,31 @@ def get_comments(video_id):
 
     return comments
 
-# 유사도 기반 악플 판단
-SIMILARITY_THRESHOLD = 0.75
-
-def is_hate(comment):
-    vec = vectorizer.transform([comment])
-    sims = cosine_similarity(vec, hate_vectors)
-    max_sim = sims.max()
-    return max_sim >= SIMILARITY_THRESHOLD, max_sim
+# Predict hate comment
+def classify_comments(comments):
+    X = vectorizer.transform(comments)
+    y_pred = model.predict(X)
+    return [(c, int(label)) for c, label in zip(comments, y_pred)]
 
 # Streamlit UI
-st.title("🔥 유튜브 악플 필터링기 (유사도 기반)")
+st.title("🧹 유튜브 악플 분류기 (Korpora 기반)")
 url = st.text_input("YouTube 영상 URL 입력")
 
-if st.button("악플 분석 시작"):
-    with st.spinner("댓글 수집 및 분석 중..."):
-        vid = extract_video_id(url)
-        if not vid:
-            st.error("유효한 YouTube 링크가 아님.")
+if st.button("분석 시작"):
+    with st.spinner("댓글 불러오는 중..."):
+        video_id = extract_video_id(url)
+        if not video_id:
+            st.error("유효한 유튜브 URL이 아닙니다.")
         else:
             try:
-                comments = get_comments(vid)
+                comments = get_comments(video_id)
                 st.write(f"총 댓글 수: {len(comments)}개")
-                results = []
-                for c in comments:
-                    try:
-                        is_h, sim = is_hate(c)
-                        if is_h:
-                            results.append({"댓글": c, "유사도": round(sim, 3)})
-                    except:
-                        continue
-                if results:
-                    st.success(f"악플 감지됨: {len(results)}개")
-                    st.dataframe(results)
-                else:
-                    st.info("악플 없음 👌")
+
+                results = classify_comments(comments)
+                hate_comments = [c for c, label in results if label == 1]
+
+                st.success(f"악플 감지됨: {len(hate_comments)}개")
+                for hc in hate_comments:
+                    st.write(f"- {hc}")
             except Exception as e:
                 st.error(f"에러 발생: {e}")
