@@ -4,8 +4,6 @@ import re
 from Korpora import Korpora
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
 
 # 1. 학습된 모델 캐시로 불러오기
 @st.cache_resource
@@ -17,9 +15,11 @@ def train_model():
 
     for d in corpus.train:
         try:
-            if hasattr(d, 'label') and hasattr(d, 'text'):
-                texts.append(d.text)
-                labels.append(1 if d.label in ['hate', 'offensive'] else 0)
+            label = d.__dict__.get("label", None)
+            text = d.__dict__.get("text", None)
+            if label and text:
+                texts.append(text)
+                labels.append(1 if label in ["hate", "offensive"] else 0)
         except:
             continue
 
@@ -91,4 +91,3 @@ if st.button("악플 분석 시작"):
                     st.write(f"- {hc}")
             except Exception as e:
                 st.error(f"에러 발생: {e}")
-
