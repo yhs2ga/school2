@@ -14,7 +14,7 @@ def load_model():
 vectorizer, hate_vectors, hate_texts = load_model()
 
 # YouTube API Key
-API_KEY = '너의_API_KEY'
+API_KEY = 'AIzaSyCEPm16vLDOuCxBH7eXB8_c8Kk78kfKfJQ'
 
 # Extract video ID
 def extract_video_id(url):
