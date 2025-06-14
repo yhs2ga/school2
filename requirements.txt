@@ -1,4 +1,5 @@
 streamlit
-requests
 scikit-learn
-Korpora
+google-api-python-client
+oauth2client
+Korpora @ git+https://github.com/ko-nlp/Korpora.git
