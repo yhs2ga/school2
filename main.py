@@ -15,9 +15,10 @@ def train_model():
 
     for d in corpus.train:
         try:
-            label = d.__dict__.get("label", None)
-            text = d.__dict__.get("text", None)
-            if label and text:
+            label_list = getattr(d, "labels", None)
+            text = getattr(d, "text", None)
+            if label_list and text:
+                label = label_list[0]  # 첫 번째 라벨만 사용
                 texts.append(text)
                 labels.append(1 if label in ["hate", "offensive"] else 0)
         except:
@@ -32,7 +33,6 @@ def train_model():
 
 vectorizer, model = train_model()
 
-# 2. 유튜브 API 키 설정
 API_KEY = 'AIzaSyCEPm16vLDOuCxBH7eXB8_c8Kk78kfKfJQ'
 
 # 3. 유튜브 URL에서 video ID 추출
