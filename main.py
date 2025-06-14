@@ -65,7 +65,7 @@ def classify_comments(comments):
     return [(c, int(p)) for c, p in zip(comments, preds)]
 
 # 6. UI
-st.title("🧹 유튜브 악플 필터기 (Korpora 기반)")
+st.title("🧹 유튜브 악플 필터기 (Korpora 기반)1")
 url = st.text_input("YouTube 링크 입력")
 
 if st.button("악플 분석 시작"):
