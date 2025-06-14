@@ -14,7 +14,7 @@ def load_model():
 vectorizer, model = load_model()
 
 # YouTube API Key
-API_KEY = '너의_API_KEY'
+API_KEY = 'AIzaSyCEPm16vLDOuCxBH7eXB8_c8Kk78kfKfJQ'
 
 # Extract video ID from URL
 def extract_video_id(url):
