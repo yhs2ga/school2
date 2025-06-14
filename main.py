@@ -18,7 +18,10 @@ API_KEY = 'AIzaSyCEPm16vLDOuCxBH7eXB8_c8Kk78kfKfJQ'
 
 # Extract video ID
 def extract_video_id(url):
-    match = re.search(r"(?:v=|youtu\\.be/)([a-zA-Z0-9_-]{11})", url)
+    match = re.search(
+        r"(?:v=|\/)([0-9A-Za-z_-]{11})(?:[&?\\s]|$)",
+        url
+    )
     return match.group(1) if match else None
 
 # Get YouTube comments
