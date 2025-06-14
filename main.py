@@ -11,7 +11,8 @@ import pandas as pd
 # 1. 학습된 모델 캐시로 불러오기
 @st.cache_resource
 def train_model():
-    corpus = KoreanHateSpeechKorpus()
+    from Korpora import Korpora
+    corpus = Korpora.load("korean_hate_speech")
     texts = [d.text for d in corpus.train]
     labels = [1 if d.label in ['hate', 'offensive'] else 0 for d in corpus.train]
 
