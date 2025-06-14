@@ -16,10 +16,10 @@ vectorizer, hate_vectors, hate_texts = load_model()
 # YouTube API Key
 API_KEY = 'AIzaSyCEPm16vLDOuCxBH7eXB8_c8Kk78kfKfJQ'
 
-# Extract video ID
+# Extract video ID (지원: watch, youtu.be, embed, shorts 등)
 def extract_video_id(url):
     match = re.search(
-        r"(?:v=|\/)([0-9A-Za-z_-]{11})(?:[&?\\s]|$)",
+        r"(?:v=|youtu\.be/|embed/|shorts/)([0-9A-Za-z_-]{11})(?:[&?\\s]|$)",
         url
     )
     return match.group(1) if match else None
@@ -53,8 +53,8 @@ def get_comments(video_id):
 
     return comments
 
-# Predict if comment is hate
-SIMILARITY_THRESHOLD = 0.6
+# 유사도 기반 악플 판단
+SIMILARITY_THRESHOLD = 0.75
 
 def is_hate(comment):
     vec = vectorizer.transform([comment])
@@ -63,7 +63,7 @@ def is_hate(comment):
     return max_sim >= SIMILARITY_THRESHOLD, max_sim
 
 # Streamlit UI
-st.title("🔥 유튜브 악플 필터링 (유사도 기반)")
+st.title("🔥 유튜브 악플 필터링기 (유사도 기반)")
 url = st.text_input("YouTube 영상 URL 입력")
 
 if st.button("악플 분석 시작"):
