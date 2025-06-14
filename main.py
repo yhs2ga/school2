@@ -1,35 +1,31 @@
 import streamlit as st
 import requests
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
-import pandas as pd
 import re
+import pickle
+from sklearn.metrics.pairwise import cosine_similarity
 
-API_KEY = 'AIzaSyBGiCgfY5Vjyh7j5xoYr__fwb1E1vSBxWA'
-
+# Load model
 @st.cache_resource
 def load_model():
-    tokenizer = AutoTokenizer.from_pretrained("beomi/KcELECTRA-base")
-    model = AutoModelForSequenceClassification.from_pretrained("beomi/KcELECTRA-base")
-    return tokenizer, model
+    with open("hate_model.pkl", "rb") as f:
+        model = pickle.load(f)
+    return model['vectorizer'], model['hate_vectors'], model['hate_texts']
 
-tokenizer, model = load_model()
+vectorizer, hate_vectors, hate_texts = load_model()
 
-def classify_comment(comment):
-    inputs = tokenizer(comment, return_tensors="pt", truncation=True, padding=True)
-    with torch.no_grad():
-        outputs = model(**inputs)
-        probs = torch.softmax(outputs.logits, dim=1)
-        label = torch.argmax(probs).item()
-    return label, probs.tolist()[0]
+# YouTube API Key
+API_KEY = '너의_API_KEY'
 
+# Extract video ID
 def extract_video_id(url):
-    match = re.search(r"(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})", url)
+    match = re.search(r"(?:v=|youtu\\.be/)([a-zA-Z0-9_-]{11})", url)
     return match.group(1) if match else None
 
+# Get YouTube comments
 def get_comments(video_id):
     comments = []
     next_page_token = None
+
     while True:
         base_url = (
             f"https://www.googleapis.com/youtube/v3/commentThreads"
@@ -39,77 +35,55 @@ def get_comments(video_id):
             base_url += f"&pageToken={next_page_token}"
 
         res = requests.get(base_url)
+        if res.status_code != 200:
+            break
+
         data = res.json()
 
         for item in data.get("items", []):
-            comment = item['snippet']['topLevelComment']['snippet']['textDisplay']
-            comments.append(comment)
+            text = item['snippet']['topLevelComment']['snippet']['textDisplay']
+            comments.append(text)
 
         next_page_token = data.get("nextPageToken")
         if not next_page_token:
             break
+
     return comments
 
+# Predict if comment is hate
+SIMILARITY_THRESHOLD = 0.6
+
+def is_hate(comment):
+    vec = vectorizer.transform([comment])
+    sims = cosine_similarity(vec, hate_vectors)
+    max_sim = sims.max()
+    return max_sim >= SIMILARITY_THRESHOLD, max_sim
+
 # Streamlit UI
-st.title("🧠 YouTube 댓글 감성 분석기")
+st.title("🔥 유튜브 악플 필터링 (유사도 기반)")
+url = st.text_input("YouTube 영상 URL 입력")
 
-video_url = st.text_input("YouTube 영상 URL 입력")
-
-# 초기 상태 설정
-if 'stop' not in st.session_state:
-    st.session_state.stop = False
-
-col1, col2 = st.columns(2)
-with col1:
-    start_analysis = st.button("분석 시작")
-with col2:
-    stop_analysis = st.button("중단")
-
-# 중단 버튼 누르면 상태 업데이트
-if stop_analysis:
-    st.session_state.stop = True
-
-if start_analysis:
-    st.session_state.stop = False
-    with st.spinner("댓글 분석 중..."):
-        video_id = extract_video_id(video_url)
-        if not video_id:
-            st.error("URL이 이상한데?")
+if st.button("악플 분석 시작"):
+    with st.spinner("댓글 수집 및 분석 중..."):
+        vid = extract_video_id(url)
+        if not vid:
+            st.error("유효한 YouTube 링크가 아님.")
         else:
             try:
-                comments = get_comments(video_id)
+                comments = get_comments(vid)
                 st.write(f"총 댓글 수: {len(comments)}개")
-
                 results = []
-                label_map = {0: "부정", 1: "긍정"}
-                status_text = st.empty()
-                progress_bar = st.progress(0)
-
-                for idx, c in enumerate(comments):
-                    if st.session_state.stop:
-                        st.warning("분석이 중단되었습니다.")
-                        break
-
+                for c in comments:
                     try:
-                        label, probs = classify_comment(c)
-                        results.append({
-                            "댓글": c,
-                            "감성": label_map[label],
-                            "부정 확률": round(probs[0], 3),
-                            "긍정 확률": round(probs[1], 3)
-                        })
-                    except Exception:
+                        is_h, sim = is_hate(c)
+                        if is_h:
+                            results.append({"댓글": c, "유사도": round(sim, 3)})
+                    except:
                         continue
-
-                    percent_complete = int((idx + 1) / len(comments) * 100)
-                    progress_bar.progress(percent_complete)
-                    status_text.text(f"{idx + 1} / {len(comments)}개 분석 완료")
-
                 if results:
-                    df = pd.DataFrame(results)
-                    st.dataframe(df)
+                    st.success(f"악플 감지됨: {len(results)}개")
+                    st.dataframe(results)
                 else:
-                    st.info("분석된 댓글이 없습니다.")
-
+                    st.info("악플 없음 👌")
             except Exception as e:
                 st.error(f"에러 발생: {e}")
