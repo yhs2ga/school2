@@ -1,4 +1,4 @@
-streamlitF
-requestsF
-scikit-learnF
-KorporaF
+streamlit
+requests
+scikit-learn
+Korpora
