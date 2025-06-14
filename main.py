@@ -49,9 +49,9 @@ def load_or_train_model():
 
         corpus = Korpora.load("korean_hate_speech")
 
-        # 튜플로 구성돼 있어서 이렇게 써야 함
-        texts = [text for text, label in corpus.train]
-        labels = [1 if label in ['hate', 'offensive'] else 0 for text, label in corpus.train]
+        # ✅ 객체에서 속성 꺼내는 방식
+        texts = [sample.text for sample in corpus.train]
+        labels = [1 if sample.label in ['hate', 'offensive'] else 0 for sample in corpus.train]
 
         vectorizer = TfidfVectorizer()
         X = vectorizer.fit_transform(texts)
