@@ -48,8 +48,10 @@ def load_or_train_model():
         st.info("처음 실행 중... 모델 학습 중입니다. 1~2분 걸릴 수 있음")
 
         corpus = Korpora.load("korean_hate_speech")
-        texts = [sample.text for sample in corpus.train]
-        labels = [1 if sample.label in ['hate', 'offensive'] else 0 for sample in corpus.train]
+
+        # 튜플로 구성돼 있어서 이렇게 써야 함
+        texts = [text for text, label in corpus.train]
+        labels = [1 if label in ['hate', 'offensive'] else 0 for text, label in corpus.train]
 
         vectorizer = TfidfVectorizer()
         X = vectorizer.fit_transform(texts)
@@ -107,4 +109,3 @@ if st.button("분석하기"):
                     st.write(f"**{i}.** {hc}")
             else:
                 st.info("악플 없음. 세상 아직 살 만하네")
-
