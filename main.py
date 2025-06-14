@@ -1,20 +1,27 @@
 import streamlit as st
 import requests
 import re
-from Korpora import KoreanHateSpeechKorpus
+from Korpora import Korpora
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-import pandas as pd
 
 # 1. 학습된 모델 캐시로 불러오기
 @st.cache_resource
 def train_model():
-    from Korpora import Korpora
     corpus = Korpora.load("korean_hate_speech")
-    texts = [d.text for d in corpus.train]
-    labels = [1 if d.label in ['hate', 'offensive'] else 0 for d in corpus.train]
+
+    texts = []
+    labels = []
+
+    for d in corpus.train:
+        try:
+            if hasattr(d, 'label') and hasattr(d, 'text'):
+                texts.append(d.text)
+                labels.append(1 if d.label in ['hate', 'offensive'] else 0)
+        except:
+            continue
 
     vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
     X = vectorizer.fit_transform(texts)
@@ -84,3 +91,4 @@ if st.button("악플 분석 시작"):
                     st.write(f"- {hc}")
             except Exception as e:
                 st.error(f"에러 발생: {e}")
+
