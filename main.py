@@ -1,27 +1,38 @@
 import streamlit as st
 import requests
 import re
-import pickle
+from Korpora import KoreanHateSpeechKorpus
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+import pandas as pd
 
-# Load trained model
+# 1. 학습된 모델 캐시로 불러오기
 @st.cache_resource
-def load_model():
-    with open("hate_model.pkl", "rb") as f:
-        data = pickle.load(f)
-    return data['vectorizer'], data['model']
+def train_model():
+    corpus = KoreanHateSpeechKorpus()
+    texts = [d.text for d in corpus.train]
+    labels = [1 if d.label in ['hate', 'offensive'] else 0 for d in corpus.train]
 
-vectorizer, model = load_model()
+    vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
+    X = vectorizer.fit_transform(texts)
+    clf = LogisticRegression(max_iter=1000)
+    clf.fit(X, labels)
 
-# YouTube API Key
+    return vectorizer, clf
+
+vectorizer, model = train_model()
+
+# 2. 유튜브 API 키 설정
 API_KEY = 'AIzaSyCEPm16vLDOuCxBH7eXB8_c8Kk78kfKfJQ'
 
-# Extract video ID from URL
+# 3. 유튜브 URL에서 video ID 추출
 def extract_video_id(url):
     match = re.search(r"(?:v=|youtu\\.be/|embed/|shorts/)([0-9A-Za-z_-]{11})(?:[&?\\s]|$)", url)
     return match.group(1) if match else None
 
-# Get YouTube comments
+# 4. 댓글 가져오기 함수
 def get_comments(video_id):
     comments = []
     next_page_token = None
@@ -46,18 +57,18 @@ def get_comments(video_id):
 
     return comments
 
-# Predict hate comment
+# 5. 댓글 분류 함수
 def classify_comments(comments):
     X = vectorizer.transform(comments)
-    y_pred = model.predict(X)
-    return [(c, int(label)) for c, label in zip(comments, y_pred)]
+    preds = model.predict(X)
+    return [(c, int(p)) for c, p in zip(comments, preds)]
 
-# Streamlit UI
-st.title("🧹 유튜브 악플 분류기 (Korpora 기반)")
+# 6. Streamlit 앱 UI
+st.title("🧹 유튜브 악플 필터기 (Korpora 모델 실시간 학습)")
 url = st.text_input("YouTube 영상 URL 입력")
 
-if st.button("분석 시작"):
-    with st.spinner("댓글 불러오는 중..."):
+if st.button("악플 분석 시작"):
+    with st.spinner("댓글 불러오는 중 + 모델 학습 중..."):
         video_id = extract_video_id(url)
         if not video_id:
             st.error("유효한 유튜브 URL이 아닙니다.")
@@ -65,10 +76,8 @@ if st.button("분석 시작"):
             try:
                 comments = get_comments(video_id)
                 st.write(f"총 댓글 수: {len(comments)}개")
-
                 results = classify_comments(comments)
                 hate_comments = [c for c, label in results if label == 1]
-
                 st.success(f"악플 감지됨: {len(hate_comments)}개")
                 for hc in hate_comments:
                     st.write(f"- {hc}")
