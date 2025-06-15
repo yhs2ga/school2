@@ -1,4 +1,5 @@
 streamlit
+requests
 scikit-learn
 google-api-python-client
 oauth2client
